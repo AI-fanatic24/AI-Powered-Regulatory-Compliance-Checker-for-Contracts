@@ -1,7 +1,7 @@
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
-SERVICE_ACCOUNT_FILE = 'credentials_sheets.json'  # Your credentials file
+SERVICE_ACCOUNT_FILE = 'credentials_sheets.json'
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
 SPREADSHEET_ID = '1XPTtr9T2g5MxhYqu61A5lOi9JdWjYW4-ItvJIhfLTYI'
@@ -43,4 +43,5 @@ wks.update_value('A1', 'Hello from pygsheets!')
 value = wks.get_value('A1')
 
 # Print the value
+
 print('Value in A1:', value)
