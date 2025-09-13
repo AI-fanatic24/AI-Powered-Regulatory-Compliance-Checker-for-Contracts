@@ -1,0 +1,22 @@
+# Core dependencies
+python-dotenv
+requests
+PyMuPDF
+pandas
+numpy
+
+# Google APIs
+google-generativeai
+google-api-python-client
+google-auth
+google-auth-oauthlib
+
+# LangChain for semantic chunking
+langchain-experimental
+langchain-huggingface
+langchain-core
+sentence-transformers
+
+# Additional ML dependencies for embeddings
+torch
+transformers
