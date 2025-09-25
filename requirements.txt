@@ -3,6 +3,8 @@ python-dotenv
 requests
 PyMuPDF
 pandas
+matplotlib
+seaborn
 numpy
 python-docx
 docx2pdf
@@ -25,3 +27,6 @@ sentence-transformers
 # Additional ML dependencies for embeddings
 torch
 transformers
+
+#UI
+streamlit
