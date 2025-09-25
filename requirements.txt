@@ -4,6 +4,11 @@ requests
 PyMuPDF
 pandas
 numpy
+python-docx
+docx2pdf
+openpyxl
+xlrd
+
 
 # Google APIs
 google-generativeai
