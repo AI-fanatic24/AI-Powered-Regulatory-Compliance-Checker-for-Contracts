@@ -11,7 +11,7 @@ from ingestion import ingest_contract
 from analysis import analyze_clauses
 from suggestions import generate_suggestions
 from save_to_sheets import process_contract_data, save_to_google_sheets
-from modifier import render_download_button
+from modifier import render_download_buttons
 
 # ------------------------------
 # Page Config
@@ -31,8 +31,25 @@ def load_css():
     <style>
     /* ========= Global Background ========= */
     .stApp {
-        background: linear-gradient(135deg, #0f2027, #203a43, #2c5364); /* dark gradient */
+        background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
         color: #f5f5f5 !important;
+    }
+
+    /* ========= Center all main headings & content ========= */
+    .center-page {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 75vh;
+        width: 100%;
+        text-align: center;
+    }
+    .center-page h1, .center-page h2, .center-page h3, .center-page h4, .center-page h5, .center-page h6 {
+        margin: 0.5em 0;
+        font-weight: bold;
+        letter-spacing: 1px;
+        text-align: center;
     }
 
     /* ========= Hero Section ========= */
@@ -49,26 +66,40 @@ def load_css():
     /* ========= Cards ========= */
     .metric-card, .chart-container {
         background: rgba(255, 255, 255, 0.08);
-        color: #f5f5f5 !important;
         padding: 1.5rem;
         border-radius: 15px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.4);
         text-align: center;
         margin: 1rem 0;
+        color: #f5f5f5 !important;
     }
 
     .risk-high { border-left: 5px solid #ff4757; }
     .risk-medium { border-left: 5px solid #ffa726; }
     .risk-low { border-left: 5px solid #26a69a; }
 
-    /* ========= Upload Section ========= */
+    /* ========= Upload Section (Styled) ========= */
     .upload-section {
         background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%);
-        padding: 3rem 2rem;
-        border-radius: 15px;
-        color: white;
+        box-shadow: 0 6px 24px rgba(20, 60, 180, 0.11);
+        padding: 3rem 2rem 2rem 2rem;
+        border-radius: 20px;
         text-align: center;
-        margin: 2rem 0;
+        margin: 2rem auto;
+        max-width: 700px;
+        border: 1.5px solid #e3f0ff;
+    }
+    .upload-section h2 {
+        font-size: 2.2rem;
+        font-weight: 700;
+        letter-spacing: 1px;
+        color: #fff !important;
+        text-shadow: 0 2px 6px #30548942;
+        margin-bottom: 0.6rem;
+    }
+    .upload-section p {
+        font-size: 1.1rem;
+        color: #e3f0ff !important;
     }
 
     /* ========= Tabs ========= */
@@ -82,7 +113,7 @@ def load_css():
         padding-right: 20px;
         background-color: #1e2a38;
         color: #f5f5f5 !important;
-        border-radius: 10px 10px 0px 0px;
+        border-radius: 10px 10px 0 0;
     }
 
     .stTabs [aria-selected="true"] {
@@ -101,12 +132,42 @@ def load_css():
         color: #333 !important;
     }
 
-    /* ========= Ensure All Text is Visible ========= */
-    h1, h2, h3, h4, h5, h6, p, div, span {
-        color: #f5f5f5 !important;
+    /* ========= Input widgets and buttons: dark text on light background ========= */
+    [data-testid="stFileUploader"] *,
+    input, textarea, select {
+        color: #222 !important;
+        background: #fff !important;
+        border-radius: 5px;
+        border: 1px solid #ddd !important;
     }
+    [data-testid="stFileUploader"] input:focus,
+    input:focus,
+    textarea:focus,
+    select:focus {
+        border-color: #267afe !important;
+        box-shadow: 0 0 3px #267afe44 !important;
+        outline: none !important;
+    }
+
+    /* Buttons style */
+    .stButton>button, .stDownloadButton>button {
+        background: #4cafef !important;
+        color: #fff !important;
+        border: none;
+        padding: 0.8rem 2.2rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 6px rgba(76, 175, 239, 0.09);
+        font-weight: 600;
+        transition: background 0.2s, box-shadow 0.2s;
+    }
+    .stButton>button:hover, .stDownloadButton>button:hover {
+        background: #267afe !important;
+        box-shadow: 0 6px 18px rgba(38, 122, 254, 0.15);
+    }
+
     </style>
     """, unsafe_allow_html=True)
+
 
 
 # ------------------------------
@@ -232,11 +293,11 @@ with tab1:
     st.markdown("---")
     st.markdown("### 🚀 Getting Started")
     st.markdown("""
-    1. **Navigate to Upload & Analyze** - Upload your contract PDF
-    2. **View Results** - Get instant risk assessment and analysis
-    3. **Explore Charts** - Visualize risk distribution and patterns
-    4. **Review Details** - Examine clause-by-clause analysis
-    5. **Track Progress** - Monitor your contract portfolio in the dashboard
+    1. *Navigate to Upload & Analyze* - Upload your contract PDF
+    2. *View Results* - Get instant risk assessment and analysis
+    3. *Explore Charts* - Visualize risk distribution and patterns
+    4. *Review Details* - Examine clause-by-clause analysis
+    5. *Track Progress* - Monitor your contract portfolio in the dashboard
     """)
 
 # ------------------------------
@@ -301,9 +362,9 @@ with tab2:
                 combined_data = process_contract_data(clauses, analysis_results, suggestions)
 
                 # Step 5: Provide download button for safe contract
-                status_text.text("✅ Preparing modified contract...")
+                status_text.text("✅ Preparing modified contract report...")
                 try:
-                    render_download_button(tmp_path,analysis_results)
+                    render_download_buttons(analysis_results)
                 except Exception as e:
                     st.error(f"❌ Failed to generate modified contract: {e}")
                 
@@ -381,7 +442,7 @@ with tab2:
         with col3:
             csv = df.to_csv(index=False).encode("utf-8")
             st.download_button(
-                "⬇️ Download CSV",
+                "⬇ Download CSV",
                 csv,
                 file_name=f"contract_analysis_{datetime.now().strftime('%Y%m%d')}.csv",
                 mime="text/csv",
@@ -399,20 +460,20 @@ with tab3:
     st.markdown("# 📊 Charts & Insights")
     
     if not st.session_state.analysis_complete or st.session_state.df_results is None:
-        st.warning("⚠️ No analysis data available. Please upload and analyze a contract first.")
+        st.warning("⚠ No analysis data available. Please upload and analyze a contract first.")
     else:
         df = st.session_state.df_results.copy()
         
         # Ensure we have risk severity data
         if "Risk_Severity" not in df.columns or df.empty:
-            st.error("⚠️ No risk analysis data available in the current contract.")
+            st.error("⚠ No risk analysis data available in the current contract.")
         else:
             # Clean and validate risk severity data
             df = df.dropna(subset=['Risk_Severity'])
             df['Risk_Severity'] = df['Risk_Severity'].astype(str).str.strip()
             
             if df.empty or df['Risk_Severity'].value_counts().sum() == 0:
-                st.info("ℹ️ No risk classifications found in the analyzed contract.")
+                st.info("ℹ No risk classifications found in the analyzed contract.")
             else:
                 # Set up matplotlib style for better appearance
                 plt.style.use('default')
@@ -536,7 +597,7 @@ with tab3:
                 
                 with col1:
                     st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-                    st.subheader("🏷️ Risk Categories")
+                    st.subheader("🏷 Risk Categories")
                     
                     if "Risk_Category" in df.columns and not df["Risk_Category"].isnull().all():
                         fig4, ax4 = plt.subplots(figsize=(10, 6))
@@ -604,7 +665,7 @@ with tab4:
     st.markdown("# 📋 Detailed Analysis Results")
     
     if not st.session_state.analysis_complete or st.session_state.df_results is None:
-        st.warning("⚠️ No analysis data available. Please upload and analyze a contract first.")
+        st.warning("⚠ No analysis data available. Please upload and analyze a contract first.")
     else:
         df = st.session_state.df_results
         
@@ -652,7 +713,7 @@ with tab4:
         with col1:
             csv = filtered_df.to_csv(index=False).encode("utf-8")
             st.download_button(
-                "⬇️ Download Filtered CSV",
+                "⬇ Download Filtered CSV",
                 csv,
                 file_name=f"filtered_analysis_{datetime.now().strftime('%Y%m%d')}.csv",
                 mime="text/csv",
@@ -665,7 +726,7 @@ with tab4:
                     filtered_df.to_excel(tmp_file.name, index=False)
                     with open(tmp_file.name, "rb") as f:
                         st.download_button(
-                            "⬇️ Download Excel",
+                            "⬇ Download Excel",
                             f.read(),
                             file_name=f"contract_analysis_{datetime.now().strftime('%Y%m%d')}.xlsx",
                             mime="application/vnd.ms-excel"
@@ -717,7 +778,7 @@ with tab5:
             ]
             
             if history_df.empty:
-                st.warning("⚠️ No valid contract data available. Please analyze some contracts with proper data.")
+                st.warning("⚠ No valid contract data available. Please analyze some contracts with proper data.")
                 st.stop()
                 
         except Exception as e:
@@ -950,7 +1011,7 @@ with tab5:
             export_df = display_df[columns_to_show]
             csv_data = export_df.to_csv(index=False).encode("utf-8")
             st.download_button(
-                "⬇️ Export History",
+                "⬇ Export History",
                 csv_data,
                 file_name=f"contract_history_{datetime.now().strftime('%Y%m%d')}.csv",
                 mime="text/csv",
@@ -963,8 +1024,8 @@ with tab5:
         
         with col3:
             # Clear history with confirmation
-            if st.button("🗑️ Clear History", type="secondary", use_container_width=True):
-                st.warning("⚠️ This will permanently delete all analysis history!")
+            if st.button("🗑 Clear History", type="secondary", use_container_width=True):
+                st.warning("⚠ This will permanently delete all analysis history!")
                 if st.button("✅ Confirm Delete", type="secondary"):
                     try:
                         conn = sqlite3.connect(DB_PATH)
