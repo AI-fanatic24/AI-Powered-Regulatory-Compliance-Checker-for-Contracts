@@ -11,6 +11,9 @@ from ingestion import ingest_contract
 from analysis import analyze_clauses
 from suggestions import generate_suggestions
 from save_to_sheets import process_contract_data, save_to_google_sheets
+from modifier import render_download_buttons
+from io import BytesIO
+
 
 # ------------------------------
 # Page Config
@@ -30,30 +33,46 @@ def load_css():
     <style>
     /* ========= Global Background ========= */
     .stApp {
-        background: linear-gradient(135deg, #0f2027, #203a43, #2c5364); /* dark gradient */
+        background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
         color: #f5f5f5 !important;
     }
 
-    /* ========= Hero Section ========= */
+    /* ========= Center all main headings & content ========= */
+    .center-page {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 75vh;
+        width: 100%;
+        text-align: center;
+    }
+    .center-page h1, .center-page h2, .center-page h3, .center-page h4, .center-page h5, .center-page h6 {
+        margin: 0.5em 0;
+        font-weight: bold;
+        letter-spacing: 1px;
+        text-align: center;
+    }
+
+    /* ========= Hero Section / Home Page Heading ========= */
     .hero-section {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
         padding: 4rem 2rem;
         border-radius: 15px;
-        color: white;
+        color: #ffffff;
         text-align: center;
         margin-bottom: 2rem;
-        background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="white" opacity="0.1"/><circle cx="75" cy="75" r="1" fill="white" opacity="0.1"/></pattern></defs><rect width="100%" height="100%" fill="url(%23grain)"/></svg>');
     }
 
     /* ========= Cards ========= */
     .metric-card, .chart-container {
         background: rgba(255, 255, 255, 0.08);
-        color: #f5f5f5 !important;
         padding: 1.5rem;
         border-radius: 15px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.4);
         text-align: center;
         margin: 1rem 0;
+        color: #f5f5f5 !important;
     }
 
     .risk-high { border-left: 5px solid #ff4757; }
@@ -63,31 +82,85 @@ def load_css():
     /* ========= Upload Section ========= */
     .upload-section {
         background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%);
-        padding: 3rem 2rem;
-        border-radius: 15px;
-        color: white;
+        box-shadow: 0 6px 24px rgba(20, 60, 180, 0.11);
+        padding: 3rem 2rem 2rem 2rem;
+        border-radius: 20px;
         text-align: center;
-        margin: 2rem 0;
+        margin: 2rem auto;
+        max-width: 700px;
+        border: 1.5px solid #e3f0ff;
+    }
+    .upload-section h2 {
+        font-size: 2.2rem;
+        font-weight: 700;
+        letter-spacing: 1px;
+        color: #fff !important;
+        text-shadow: 0 2px 6px #30548942;
+        margin-bottom: 0.6rem;
+    }
+    .upload-section p {
+        font-size: 1.1rem;
+        color: #e3f0ff !important;
+    }
+
+    /* ========= Upload Section Progress Texts ========= */
+    .upload-section span,
+    .upload-section div[data-testid="stText"] {
+        color: #ffffff !important;
+        font-weight: 500;
     }
 
     /* ========= Tabs ========= */
     .stTabs [data-baseweb="tab-list"] {
         gap: 2px;
     }
-
     .stTabs [data-baseweb="tab"] {
         height: 50px;
         padding-left: 20px;
         padding-right: 20px;
         background-color: #1e2a38;
         color: #f5f5f5 !important;
-        border-radius: 10px 10px 0px 0px;
+        border-radius: 10px 10px 0 0;
     }
-
     .stTabs [aria-selected="true"] {
         background-color: #4cafef !important;
-        color: white !important;
+        color: #ffffff !important;
         font-weight: 600 !important;
+    }
+
+    /* ========= Alerts (Success & Info) ========= */
+    .stAlert {
+        color: #ffffff !important;
+        font-weight: 600;
+    }
+    .stAlert.stAlert-success {
+        background-color: #1f7a2e !important;
+        border-left: 4px solid #28a745 !important;
+        padding: 12px !important;
+        border-radius: 8px !important;
+    }
+    .stAlert.stAlert-info {
+        background-color: #116c7b !important;
+        border-left: 4px solid #17a2b8 !important;
+        padding: 12px !important;
+        border-radius: 8px !important;
+    }
+    .stAlert p {
+        color: #ffffff !important;
+        font-size: 16px !important;
+    }
+
+    /* ========= Detailed Sheets / Expander Headings ========= */
+    .stExpander h2,
+    .stExpander h3,
+    .stExpander h4,
+    .stExpander h5,
+    .stExpander h6 {
+        color: #ffffff !important;
+        font-weight: 600;
+    }
+    .stExpander .css-1v0mbdj {
+        color: #ffffff !important; /* section headings inside expanders */
     }
 
     /* ========= Processing Animation ========= */
@@ -100,10 +173,73 @@ def load_css():
         color: #333 !important;
     }
 
-    /* ========= Ensure All Text is Visible ========= */
-    h1, h2, h3, h4, h5, h6, p, div, span {
-        color: #f5f5f5 !important;
+    /* ========= Inputs & Buttons ========= */
+    [data-testid="stFileUploader"] *,
+    input, textarea, select {
+        color: #222 !important;
+        background: #fff !important;
+        border-radius: 5px;
+        border: 1px solid #ddd !important;
     }
+    [data-testid="stFileUploader"] input:focus,
+    input:focus,
+    textarea:focus,
+    select:focus {
+        border-color: #267afe !important;
+        box-shadow: 0 0 3px #267afe44 !important;
+        outline: none !important;
+    }
+
+    .stButton>button, .stDownloadButton>button {
+        background: #4cafef !important;
+        color: #fff !important;
+        border: none;
+        padding: 0.8rem 2.2rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 6px rgba(76, 175, 239, 0.09);
+        font-weight: 600;
+        transition: background 0.2s, box-shadow 0.2s;
+    }
+    .stButton>button:hover, .stDownloadButton>button:hover {
+        background: #267afe !important;
+        box-shadow: 0 6px 18px rgba(38, 122, 254, 0.15);
+    }
+
+    /* ========= Selectbox & Text Input on Dark Background ========= */
+    /* Labels */
+    .stForm label, 
+    [data-testid="stTextInput"] label,
+    [data-testid="stSelectbox"] label {
+        color: #ffffff !important;
+        font-weight: 600;
+    }
+
+    /* Text input typed text and placeholder */
+    [data-testid="stTextInput"] input {
+        color: #ffffff !important;
+        background-color: #1e2a38 !important;
+        border: 1px solid #444 !important;
+    }
+
+    /* Selectbox text and dropdown */
+    [data-testid="stSelectbox"] div[role="combobox"] {
+        color: #ffffff !important;
+        background-color: #1e2a38 !important;
+        border: 1px solid #444 !important;
+    }
+    div[role="listbox"] {
+        color: #ffffff !important;
+        background-color: #1e2a38 !important;
+    }
+
+    /* ========= Force all dynamic status/progress text (st.text, st.write) to white ========= */
+    div[data-testid="stText"] *,
+    div[data-testid="stText"] p,
+    div[data-testid="stText"] span {
+        color: #ffffff !important;
+        font-weight: 500 !important;
+    }
+
     </style>
     """, unsafe_allow_html=True)
 
@@ -132,32 +268,133 @@ def init_db():
     conn.close()
 
 def save_history(filename, num_clauses, num_high, num_medium, num_low, sheet_name=""):
-    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("INSERT INTO history (filename, timestamp, num_clauses, num_high, num_medium, num_low, sheet_name) VALUES (?, ?, ?, ?, ?, ?, ?)",
-              (filename, ts, num_clauses, num_high, num_medium, num_low, sheet_name))
-    conn.commit()
-    conn.close()
-
-def load_history():
-    conn = sqlite3.connect(DB_PATH)
+    """Save analysis results to database with validation and logging."""
+    # Input validation
     try:
-        df = pd.read_sql("SELECT * FROM history ORDER BY id DESC", conn)
-
-        # Ensure numeric columns are properly converted
-        numeric_cols = ["num_clauses", "num_high", "num_medium", "num_low"]
-        for col in numeric_cols:
-            if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).astype(int)
-
-    except Exception as e:
-        st.error(f"❌ Error loading history: {e}")
-        df = pd.DataFrame()
+        # Ensure all numbers are non-negative integers
+        num_clauses = max(0, int(num_clauses))
+        num_high = max(0, int(num_high))
+        num_medium = max(0, int(num_medium))
+        num_low = max(0, int(num_low))
+        
+        # Basic validation
+        if num_high + num_medium + num_low > num_clauses:
+            print(f"Warning: Risk counts ({num_high}+{num_medium}+{num_low}) exceed total clauses ({num_clauses})")
+            # Adjust risk numbers if they exceed total clauses
+            factor = num_clauses / (num_high + num_medium + num_low)
+            num_high = int(num_high * factor)
+            num_medium = int(num_medium * factor)
+            num_low = int(num_low * factor)
+            print(f"Adjusted to: High={num_high}, Medium={num_medium}, Low={num_low}")
+    except (ValueError, TypeError) as e:
+        print(f"Error converting numbers: {str(e)}")
+        # If conversion fails, set to 0
+        num_clauses = num_high = num_medium = num_low = 0
+    
+    # Ensure filename is valid
+    if not filename or not isinstance(filename, str):
+        filename = f"unnamed_contract_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        
+        # First check if this exact entry exists
+        c.execute("""
+            SELECT id FROM history 
+            WHERE filename = ? AND timestamp = ? AND num_clauses = ? 
+            AND num_high = ? AND num_medium = ? AND num_low = ?
+        """, (filename, ts, num_clauses, num_high, num_medium, num_low))
+        
+        if c.fetchone() is None:
+            # Only insert if no duplicate exists
+            c.execute("""
+                INSERT INTO history 
+                (filename, timestamp, num_clauses, num_high, num_medium, num_low, sheet_name) 
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (filename, ts, num_clauses, num_high, num_medium, num_low, sheet_name))
+            print(f"Saved to database: {filename} with {num_clauses} clauses")
+        else:
+            print(f"Skipped duplicate entry for {filename}")
+        
+        conn.commit()
+    except sqlite3.Error as e:
+        print(f"Database error: {str(e)}")
+        raise
     finally:
         conn.close()
 
-    return df
+def load_history():
+    """Load and validate history data from database."""
+    try:
+        if not os.path.exists(DB_PATH):
+            print("Database file does not exist yet")
+            return pd.DataFrame()
+            
+        conn = sqlite3.connect(DB_PATH)
+        
+        # First verify table structure
+        c = conn.cursor()
+        c.execute("SELECT * FROM history LIMIT 0")
+        columns = [description[0] for description in c.description]
+        expected_columns = ['id', 'filename', 'timestamp', 'num_clauses', 'num_high', 
+                          'num_medium', 'num_low', 'sheet_name']
+        
+        if not all(col in columns for col in expected_columns):
+            print("Warning: Database schema mismatch")
+            return pd.DataFrame()
+        
+        # Load data with explicit column types
+        df = pd.read_sql("""
+            SELECT 
+                id,
+                filename,
+                timestamp,
+                CAST(num_clauses AS INTEGER) as num_clauses,
+                CAST(num_high AS INTEGER) as num_high,
+                CAST(num_medium AS INTEGER) as num_medium,
+                CAST(num_low AS INTEGER) as num_low,
+                sheet_name
+            FROM history 
+            ORDER BY id DESC
+        """, conn)
+        
+        # Additional validation and cleaning
+        # Convert timestamp
+        df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
+        df = df.dropna(subset=['timestamp'])  # Remove rows with invalid timestamps
+        
+        # Ensure numeric columns are non-negative integers
+        numeric_cols = ["num_clauses", "num_high", "num_medium", "num_low"]
+        for col in numeric_cols:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
+                df[col] = df[col].apply(lambda x: max(0, int(x)))  # Ensure non-negative integers
+        
+        # Validate risk counts don't exceed clause counts
+        mask = df[['num_high', 'num_medium', 'num_low']].sum(axis=1) > df['num_clauses']
+        if mask.any():
+            print(f"Warning: Found {mask.sum()} entries where risk counts exceed clause counts")
+            # Adjust the problematic entries
+            for idx in df[mask].index:
+                total_risks = df.loc[idx, ['num_high', 'num_medium', 'num_low']].sum()
+                if total_risks > 0:
+                    factor = df.loc[idx, 'num_clauses'] / total_risks
+                    for risk_col in ['num_high', 'num_medium', 'num_low']:
+                        df.loc[idx, risk_col] = int(df.loc[idx, risk_col] * factor)
+        
+        print(f"Loaded {len(df)} history entries")
+        return df
+        
+    except Exception as e:
+        print(f"Error loading history: {str(e)}")
+        return pd.DataFrame()
+        
+    finally:
+        if 'conn' in locals():
+            conn.close()
 
 
 # ------------------------------
@@ -231,11 +468,11 @@ with tab1:
     st.markdown("---")
     st.markdown("### 🚀 Getting Started")
     st.markdown("""
-    1. **Navigate to Upload & Analyze** - Upload your contract PDF
-    2. **View Results** - Get instant risk assessment and analysis
-    3. **Explore Charts** - Visualize risk distribution and patterns
-    4. **Review Details** - Examine clause-by-clause analysis
-    5. **Track Progress** - Monitor your contract portfolio in the dashboard
+    1. Navigate to Upload & Analyze - Upload your contract PDF
+    2. View Results - Get instant risk assessment and analysis
+    3. Explore Charts - Visualize risk distribution and patterns
+    4. Review Details - Examine clause-by-clause analysis
+    5. Track Progress - Monitor your contract portfolio in the dashboard
     """)
 
 # ------------------------------
@@ -298,6 +535,13 @@ with tab2:
                 status_text.text("📊 Preparing results...")
                 progress_bar.progress(100)
                 combined_data = process_contract_data(clauses, analysis_results, suggestions)
+
+                # Step 5: Provide download button for safe contract
+                status_text.text("✅ Preparing modified contract report...")
+                try:
+                    render_download_buttons(analysis_results)
+                except Exception as e:
+                    st.error(f"❌ Failed to generate modified contract: {e}")
                 
                 # Save to session state
                 st.session_state.analysis_data = combined_data
@@ -373,7 +617,7 @@ with tab2:
         with col3:
             csv = df.to_csv(index=False).encode("utf-8")
             st.download_button(
-                "⬇️ Download CSV",
+                "⬇ Download CSV",
                 csv,
                 file_name=f"contract_analysis_{datetime.now().strftime('%Y%m%d')}.csv",
                 mime="text/csv",
@@ -391,42 +635,40 @@ with tab3:
     st.markdown("# 📊 Charts & Insights")
     
     if not st.session_state.analysis_complete or st.session_state.df_results is None:
-        st.warning("⚠️ No analysis data available. Please upload and analyze a contract first.")
+        st.warning("⚠ No analysis data available. Please upload and analyze a contract first.")
     else:
         df = st.session_state.df_results.copy()
         
         # Ensure we have risk severity data
         if "Risk_Severity" not in df.columns or df.empty:
-            st.error("⚠️ No risk analysis data available in the current contract.")
+            st.error("⚠ No risk analysis data available in the current contract.")
         else:
             # Clean and validate risk severity data
             df = df.dropna(subset=['Risk_Severity'])
             df['Risk_Severity'] = df['Risk_Severity'].astype(str).str.strip()
             
             if df.empty or df['Risk_Severity'].value_counts().sum() == 0:
-                st.info("ℹ️ No risk classifications found in the analyzed contract.")
+                st.info("ℹ No risk classifications found in the analyzed contract.")
             else:
-                # Set up matplotlib style for better appearance
+                # Set up matplotlib style
                 plt.style.use('default')
                 sns.set_palette("husl")
                 
                 col1, col2 = st.columns(2)
                 
+                # --- Risk Distribution Bar ---
                 with col1:
                     st.markdown('<div class="chart-container">', unsafe_allow_html=True)
                     st.subheader("🎯 Risk Distribution")
                     
-                    # Create properly sized figure
                     fig, ax = plt.subplots(figsize=(8, 5))
                     risk_counts = df["Risk_Severity"].value_counts()
                     
-                    # Define colors for different risk levels
                     color_map = {'High': '#ff4757', 'Medium': '#ffa726', 'Low': '#26a69a'}
                     colors = [color_map.get(risk, '#74b9ff') for risk in risk_counts.index]
                     
                     bars = ax.bar(risk_counts.index, risk_counts.values, color=colors, alpha=0.8)
                     
-                    # Add value labels on top of bars
                     for bar in bars:
                         height = bar.get_height()
                         ax.text(bar.get_x() + bar.get_width()/2., height + 0.1,
@@ -435,21 +677,18 @@ with tab3:
                     ax.set_xlabel("Risk Severity", fontsize=12)
                     ax.set_ylabel("Number of Clauses", fontsize=12)
                     ax.set_title("Risk Distribution by Severity", fontsize=14, fontweight='bold', pad=20)
+                    ax.set_ylim(0, risk_counts.max() * 1.3)
                     
-                    # Set y-axis limits properly
-                    max_value = risk_counts.max()
-                    ax.set_ylim(0, max_value * 1.3)
-                    
-                    # Style improvements
                     ax.grid(True, axis='y', linestyle='--', alpha=0.3)
                     ax.spines['top'].set_visible(False)
                     ax.spines['right'].set_visible(False)
                     
                     plt.tight_layout()
                     st.pyplot(fig, use_container_width=True)
-                    plt.close(fig)  # Close figure to free memory
+                    plt.close(fig)
                     st.markdown('</div>', unsafe_allow_html=True)
                 
+                # --- Risk Distribution Pie ---
                 with col2:
                     st.markdown('<div class="chart-container">', unsafe_allow_html=True)
                     st.subheader("📈 Risk Percentage")
@@ -457,21 +696,18 @@ with tab3:
                     fig2, ax2 = plt.subplots(figsize=(8, 5))
                     risk_counts = df["Risk_Severity"].value_counts()
                     
-                    # Define colors for pie chart
                     color_map = {'High': '#ff4757', 'Medium': '#ffa726', 'Low': '#26a69a'}
                     colors = [color_map.get(risk, '#74b9ff') for risk in risk_counts.index]
                     
-                    # Create pie chart with better formatting
                     wedges, texts, autotexts = ax2.pie(
                         risk_counts.values,
                         labels=risk_counts.index,
                         autopct=lambda pct: f'{pct:.1f}%\n({int(pct*sum(risk_counts.values)/100)})',
                         colors=colors,
                         startangle=90,
-                        explode=[0.05] * len(risk_counts)  # Slightly separate slices
+                        explode=[0.05] * len(risk_counts)
                     )
                     
-                    # Style improvements for text
                     plt.setp(autotexts, size=10, weight="bold", color='white')
                     plt.setp(texts, size=11, weight='bold')
                     
@@ -479,10 +715,10 @@ with tab3:
                     
                     plt.tight_layout()
                     st.pyplot(fig2, use_container_width=True)
-                    plt.close(fig2)  # Close figure to free memory
+                    plt.close(fig2)
                     st.markdown('</div>', unsafe_allow_html=True)
                 
-                # Risk timeline (if timestamp available)
+                # --- Risk Trends ---
                 st.markdown('<div class="chart-container">', unsafe_allow_html=True)
                 st.subheader("📅 Risk Analysis Trends")
                 
@@ -491,12 +727,9 @@ with tab3:
                 
                 if not history_df.empty and len(history_df) > 1:
                     fig3, ax3 = plt.subplots(figsize=(14, 6))
-                    
-                    # Convert timestamp and sort
                     history_df['timestamp'] = pd.to_datetime(history_df['timestamp'])
                     history_df = history_df.sort_values('timestamp')
                     
-                    # Plot trends with better styling
                     ax3.plot(history_df['timestamp'], history_df['num_high'], 'o-', 
                             color='#ff4757', label='High Risk', linewidth=3, markersize=8)
                     ax3.plot(history_df['timestamp'], history_df['num_medium'], 's-', 
@@ -510,7 +743,6 @@ with tab3:
                     ax3.legend(fontsize=11, loc='upper left')
                     ax3.grid(True, alpha=0.3)
                     
-                    # Format dates on x-axis
                     plt.xticks(rotation=45)
                     ax3.spines['top'].set_visible(False)
                     ax3.spines['right'].set_visible(False)
@@ -523,72 +755,35 @@ with tab3:
                 
                 st.markdown('</div>', unsafe_allow_html=True)
                 
-                # Additional analysis sections
-                col1, col2 = st.columns(2)
+                # --- Clause Length Analysis (Full Width) ---
+                st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+                st.subheader("📏 Clause Length Analysis")
                 
-                with col1:
-                    st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-                    st.subheader("🏷️ Risk Categories")
+                if "Clause_Text" in df.columns and not df["Clause_Text"].isnull().all():
+                    df['clause_length'] = df['Clause_Text'].astype(str).str.len()
                     
-                    if "Risk_Category" in df.columns and not df["Risk_Category"].isnull().all():
-                        fig4, ax4 = plt.subplots(figsize=(10, 6))
-                        category_counts = df["Risk_Category"].value_counts().head(8)
-                        
-                        bars = ax4.barh(range(len(category_counts)), category_counts.values, color='lightcoral', alpha=0.8)
-                        ax4.set_yticks(range(len(category_counts)))
-                        ax4.set_yticklabels(category_counts.index, fontsize=10)
-                        ax4.set_xlabel("Number of Clauses", fontsize=12)
-                        ax4.set_title("Top Risk Categories", fontsize=14, fontweight='bold', pad=20)
-                        
-                        # Add value labels
-                        for i, bar in enumerate(bars):
-                            width = bar.get_width()
-                            ax4.text(width + 0.1, bar.get_y() + bar.get_height()/2,
-                                   f'{int(width)}', ha='left', va='center', fontweight='bold')
-                        
-                        ax4.grid(True, axis='x', alpha=0.3)
-                        ax4.spines['top'].set_visible(False)
-                        ax4.spines['right'].set_visible(False)
-                        
-                        plt.tight_layout()
-                        st.pyplot(fig4, use_container_width=True)
-                        plt.close(fig4)
-                    else:
-                        st.info("📋 Risk category data not available")
+                    fig5, ax5 = plt.subplots(figsize=(10, 6))
+                    ax5.hist(df['clause_length'], bins=15, color='skyblue', alpha=0.7, edgecolor='black', linewidth=1.2)
+                    ax5.set_xlabel("Clause Length (characters)", fontsize=12)
+                    ax5.set_ylabel("Frequency", fontsize=12)
+                    ax5.set_title("Distribution of Clause Lengths", fontsize=14, fontweight='bold', pad=20)
                     
-                    st.markdown('</div>', unsafe_allow_html=True)
+                    mean_length = df['clause_length'].mean()
+                    ax5.axvline(mean_length, color='red', linestyle='--', linewidth=2, 
+                               label=f'Mean: {mean_length:.0f}')
+                    ax5.legend()
+                    
+                    ax5.grid(True, alpha=0.3)
+                    ax5.spines['top'].set_visible(False)
+                    ax5.spines['right'].set_visible(False)
+                    
+                    plt.tight_layout()
+                    st.pyplot(fig5, use_container_width=True)
+                    plt.close(fig5)
+                else:
+                    st.info("📄 Clause text data not available")
                 
-                with col2:
-                    st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-                    st.subheader("📏 Clause Length Analysis")
-                    
-                    if "Clause_Text" in df.columns and not df["Clause_Text"].isnull().all():
-                        df['clause_length'] = df['Clause_Text'].astype(str).str.len()
-                        
-                        fig5, ax5 = plt.subplots(figsize=(10, 6))
-                        ax5.hist(df['clause_length'], bins=15, color='skyblue', alpha=0.7, edgecolor='black', linewidth=1.2)
-                        ax5.set_xlabel("Clause Length (characters)", fontsize=12)
-                        ax5.set_ylabel("Frequency", fontsize=12)
-                        ax5.set_title("Distribution of Clause Lengths", fontsize=14, fontweight='bold', pad=20)
-                        
-                        # Add statistics
-                        mean_length = df['clause_length'].mean()
-                        ax5.axvline(mean_length, color='red', linestyle='--', linewidth=2, 
-                                   label=f'Mean: {mean_length:.0f}')
-                        ax5.legend()
-                        
-                        ax5.grid(True, alpha=0.3)
-                        ax5.spines['top'].set_visible(False)
-                        ax5.spines['right'].set_visible(False)
-                        
-                        plt.tight_layout()
-                        st.pyplot(fig5, use_container_width=True)
-                        plt.close(fig5)
-                    else:
-                        st.info("📄 Clause text data not available")
-                    
-                    st.markdown('</div>', unsafe_allow_html=True)
-
+                st.markdown('</div>', unsafe_allow_html=True)
 # ------------------------------
 # DETAILED RESULTS PAGE
 # ------------------------------
@@ -596,7 +791,7 @@ with tab4:
     st.markdown("# 📋 Detailed Analysis Results")
     
     if not st.session_state.analysis_complete or st.session_state.df_results is None:
-        st.warning("⚠️ No analysis data available. Please upload and analyze a contract first.")
+        st.warning("⚠ No analysis data available. Please upload and analyze a contract first.")
     else:
         df = st.session_state.df_results
         
@@ -644,7 +839,7 @@ with tab4:
         with col1:
             csv = filtered_df.to_csv(index=False).encode("utf-8")
             st.download_button(
-                "⬇️ Download Filtered CSV",
+                "⬇ Download Filtered CSV",
                 csv,
                 file_name=f"filtered_analysis_{datetime.now().strftime('%Y%m%d')}.csv",
                 mime="text/csv",
@@ -657,7 +852,7 @@ with tab4:
                     filtered_df.to_excel(tmp_file.name, index=False)
                     with open(tmp_file.name, "rb") as f:
                         st.download_button(
-                            "⬇️ Download Excel",
+                            "⬇ Download Excel",
                             f.read(),
                             file_name=f"contract_analysis_{datetime.now().strftime('%Y%m%d')}.xlsx",
                             mime="application/vnd.ms-excel"
@@ -669,7 +864,8 @@ with tab4:
                     sheet_name = save_to_google_sheets(filtered_df.to_dict('records'))
                     st.success(f"✅ Saved to Google Sheets: {sheet_name}")
                 except Exception as e:
-                    st.error(f"❌ Failed to save: {str(e)}")
+                    st.error(f"❌ Failed to save: {str(e)}")                
+
 
 # ------------------------------
 # COMPANY DASHBOARD PAGE (FIXED AND STREAMLINED)
@@ -680,294 +876,121 @@ with tab5:
     init_db()
     history_df = load_history()
     
-    if history_df.empty:
+    if history_df.empty or len(history_df) == 0:
         st.info("📝 No contract analysis history available. Start by analyzing some contracts!")
     else:
-        # Data validation and cleaning
         try:
-            # Convert timestamp to datetime and handle errors
+            # --- Data Cleaning ---
             history_df['timestamp'] = pd.to_datetime(history_df['timestamp'], errors='coerce')
-            
-            # Remove entries with invalid timestamps
             history_df = history_df.dropna(subset=['timestamp'])
             
-            # Ensure numeric columns are properly typed
-            numeric_cols = ['num_clauses', 'num_high', 'num_medium', 'num_low']
-            for col in numeric_cols:
-                if col in history_df.columns:
-                    history_df[col] = pd.to_numeric(history_df[col], errors='coerce').fillna(0).astype(int)
-                else:
-                    history_df[col] = 0
-            
-            # Remove duplicate entries based on filename and timestamp (fix double counting)
+            # Ensure num_clauses is numeric
+            if 'num_clauses' in history_df.columns:
+                history_df['num_clauses'] = pd.to_numeric(history_df['num_clauses'], errors='coerce').fillna(0).astype(int)
+            else:
+                history_df['num_clauses'] = 0
+
+            # Remove duplicates
             history_df = history_df.drop_duplicates(subset=['filename', 'timestamp'], keep='last')
-            
-            # Only keep entries that have meaningful data
-            history_df = history_df[
-                (history_df['num_clauses'] > 0) |  # Has clauses OR
-                (history_df[['num_high', 'num_medium', 'num_low']].sum(axis=1) > 0)  # Has risk data
-            ]
+            history_df = history_df[history_df['num_clauses'] > 0]
             
             if history_df.empty:
-                st.warning("⚠️ No valid contract data available. Please analyze some contracts with proper data.")
+                st.warning("⚠ No valid contract data available. Please analyze some contracts with proper data.")
                 st.stop()
                 
         except Exception as e:
             st.error(f"❌ Error processing dashboard data: {str(e)}")
             st.stop()
         
-        # Calculate correct statistics
+        # --- 3 MAIN METRICS ---
         total_contracts = len(history_df)
         total_clauses = int(history_df['num_clauses'].sum())
-        total_high_risk = int(history_df['num_high'].sum())
-        total_medium_risk = int(history_df['num_medium'].sum())
-        total_low_risk = int(history_df['num_low'].sum())
-        total_risk_clauses = total_high_risk + total_medium_risk + total_low_risk
+        avg_clauses_per_contract = round(total_clauses / total_contracts) if total_contracts > 0 else 0
         
-        # Calculate meaningful averages
-        avg_clauses_per_contract = total_clauses / total_contracts if total_contracts > 0 else 0
-        high_risk_contracts = int((history_df['num_high'] > 0).sum())
-        
-        # Main dashboard metrics
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.markdown(f"""
-            <div class="metric-card">
-                <h3>{total_contracts}</h3>
-                <p>Total Contracts Analyzed</p>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col2:
-            st.markdown(f"""
-            <div class="metric-card">
-                <h3>{total_clauses}</h3>
-                <p>Total Clauses Processed</p>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col3:
-            st.markdown(f"""
-            <div class="metric-card">
-                <h3>{avg_clauses_per_contract:.0f}</h3>
-                <p>Avg Clauses per Contract</p>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col4:
-            st.markdown(f"""
-            <div class="metric-card risk-high">
-                <h3>{high_risk_contracts}</h3>
-                <p>Contracts with High Risk</p>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        # Only show risk analysis if we have risk data
-        if total_risk_clauses > 0:
-            st.markdown("### 🎯 Risk Analysis Summary")
-            
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                st.markdown(f"""
-                <div class="metric-card risk-high">
-                    <h3>{total_high_risk}</h3>
-                    <p>High Risk Clauses</p>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            with col2:
-                st.markdown(f"""
-                <div class="metric-card risk-medium">
-                    <h3>{total_medium_risk}</h3>
-                    <p>Medium Risk Clauses</p>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            with col3:
-                st.markdown(f"""
-                <div class="metric-card risk-low">
-                    <h3>{total_low_risk}</h3>
-                    <p>Low Risk Clauses</p>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            with col4:
-                risk_percentage = (total_high_risk / total_risk_clauses * 100) if total_risk_clauses > 0 else 0
-                st.markdown(f"""
-                <div class="metric-card">
-                    <h3>{risk_percentage:.1f}%</h3>
-                    <p>High Risk Rate</p>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            # Risk visualization - only if we have meaningful data
-            st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-            st.subheader("📊 Risk Distribution")
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                # Bar chart for risk distribution
-                fig, ax = plt.subplots(figsize=(10, 6))
-                
-                risk_data = [total_high_risk, total_medium_risk, total_low_risk]
-                risk_labels = ['High Risk', 'Medium Risk', 'Low Risk']
-                colors = ['#ff4757', '#ffa726', '#26a69a']
-                
-                bars = ax.bar(risk_labels, risk_data, color=colors, alpha=0.8)
-                
-                # Add value labels on bars
-                for bar in bars:
-                    height = bar.get_height()
-                    if height > 0:  # Only show label if there's data
-                        ax.text(bar.get_x() + bar.get_width()/2., height + max(risk_data)*0.01,
-                               f'{int(height)}', ha='center', va='bottom', fontsize=12, fontweight='bold')
-                
-                ax.set_title("Total Risk Clauses", fontsize=14, fontweight='bold', pad=20)
-                ax.set_ylabel("Number of Clauses", fontsize=12)
-                ax.grid(True, axis='y', alpha=0.3)
-                ax.spines['top'].set_visible(False)
-                ax.spines['right'].set_visible(False)
-                
-                plt.tight_layout()
-                st.pyplot(fig, use_container_width=True)
-                plt.close(fig)
-            
-            with col2:
-                # Pie chart for risk percentage
-                fig2, ax2 = plt.subplots(figsize=(8, 6))
-                
-                # Only include non-zero values in pie chart
-                non_zero_data = [(label, value) for label, value in zip(risk_labels, risk_data) if value > 0]
-                
-                if non_zero_data:
-                    labels, values = zip(*non_zero_data)
-                    colors_filtered = [colors[risk_labels.index(label)] for label in labels]
-                    
-                    wedges, texts, autotexts = ax2.pie(values, labels=labels, autopct='%1.1f%%', 
-                                                      colors=colors_filtered, startangle=90)
-                    plt.setp(autotexts, size=10, weight="bold", color='white')
-                    plt.setp(texts, size=11, weight='bold')
-                    
-                    ax2.set_title("Risk Distribution %", fontsize=14, fontweight='bold', pad=20)
-                else:
-                    ax2.text(0.5, 0.5, 'No Risk Data Available', ha='center', va='center', 
-                            transform=ax2.transAxes, fontsize=14)
-                    ax2.axis('off')
-                
-                plt.tight_layout()
-                st.pyplot(fig2, use_container_width=True)
-                plt.close(fig2)
-            
-            st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Timeline analysis - only if multiple contracts
-        if len(history_df) > 1:
-            st.markdown("### 📈 Analysis Timeline")
-            
-            st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-            
-            # Sort data by timestamp
-            history_df_sorted = history_df.sort_values('timestamp')
-            
-            fig, ax = plt.subplots(figsize=(14, 6))
-            
-            # Plot contract analysis over time
-            dates = history_df_sorted['timestamp'].dt.date
-            ax.plot(dates, history_df_sorted['num_clauses'], 'o-', 
-                   color='steelblue', label='Total Clauses', linewidth=2, markersize=6)
-            
-            # Add risk trends only if we have risk data
-            if total_risk_clauses > 0:
-                ax.plot(dates, history_df_sorted['num_high'], 's-', 
-                       color='#ff4757', label='High Risk', linewidth=2, markersize=6)
-                ax.plot(dates, history_df_sorted['num_medium'], '^-', 
-                       color='#ffa726', label='Medium Risk', linewidth=2, markersize=6)
-                ax.plot(dates, history_df_sorted['num_low'], 'v-', 
-                       color='#26a69a', label='Low Risk', linewidth=2, markersize=6)
-            
-            ax.set_xlabel("Analysis Date", fontsize=12)
-            ax.set_ylabel("Number of Clauses", fontsize=12)
-            ax.set_title("Contract Analysis Timeline", fontsize=14, fontweight='bold', pad=20)
-            ax.legend(fontsize=10)
-            ax.grid(True, alpha=0.3)
-            
-            # Format x-axis
-            plt.xticks(rotation=45)
-            ax.spines['top'].set_visible(False)
-            ax.spines['right'].set_visible(False)
-            
-            plt.tight_layout()
-            st.pyplot(fig, use_container_width=True)
-            plt.close(fig)
-            
-            st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Contract history table - simplified
-        st.markdown("### 📋 Recent Contract Analysis")
-        
-        # Format display dataframe
-        display_df = history_df.copy()
-        display_df['Analysis Date'] = pd.to_datetime(display_df['timestamp']).dt.strftime('%Y-%m-%d %H:%M')
-        display_df = display_df.rename(columns={
-            'filename': 'Contract File',
-            'num_clauses': 'Clauses',
-            'num_high': 'High Risk',
-            'num_medium': 'Medium Risk', 
-            'num_low': 'Low Risk'
-        })
-        
-        # Sort by most recent and show only relevant columns
-        display_df = display_df.sort_values('timestamp', ascending=False)
-        columns_to_show = ['Contract File', 'Analysis Date', 'Clauses']
-        
-        # Only add risk columns if we have risk data
-        if total_risk_clauses > 0:
-            columns_to_show.extend(['High Risk', 'Medium Risk', 'Low Risk'])
-        
-        st.dataframe(
-            display_df[columns_to_show].head(10),  # Show only last 10 entries
-            use_container_width=True,
-            hide_index=True
-        )
-        
-        # Export and management options
-        st.markdown("### 📤 Data Management")
         col1, col2, col3 = st.columns(3)
-        
         with col1:
-            # Export current data
-            export_df = display_df[columns_to_show]
-            csv_data = export_df.to_csv(index=False).encode("utf-8")
+            st.markdown(f"""<div class="metric-card"><h3>{total_contracts}</h3><p>Total Contracts</p></div>""", unsafe_allow_html=True)
+        with col2:
+            st.markdown(f"""<div class="metric-card"><h3>{total_clauses}</h3><p>Total Clauses</p></div>""", unsafe_allow_html=True)
+        with col3:
+            st.markdown(f"""<div class="metric-card"><h3>{avg_clauses_per_contract}</h3><p>Avg Clauses</p></div>""", unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        # --- TABLE DISPLAY ---
+        st.subheader("📑 Contract History")
+        display_df = history_df[['filename', 'num_clauses', 'timestamp']].rename(
+            columns={
+                'filename': 'Contract Name',
+                'num_clauses': 'Number of Clauses',
+                'timestamp': 'Analyzed On'
+            }
+        )
+        st.dataframe(display_df.sort_values(by='Analyzed On', ascending=False))
+        
+        # --- BOTTOM BUTTONS ---
+        colA, colB = st.columns([1, 1])
+        
+        with colA:
+            # Export to Excel
+            towrite = BytesIO()
+            with pd.ExcelWriter(towrite, engine='xlsxwriter') as writer:
+                display_df.to_excel(writer, index=False, sheet_name="Contract History")
+                worksheet = writer.sheets["Contract History"]
+                
+                # Set column widths
+                worksheet.set_column("A:A", 40)  # Contract Name
+                worksheet.set_column("B:B", 20)  # Number of Clauses
+                worksheet.set_column("C:C", 25)  # Timestamp
+            
+            towrite.seek(0)
             st.download_button(
-                "⬇️ Export History",
-                csv_data,
-                file_name=f"contract_history_{datetime.now().strftime('%Y%m%d')}.csv",
-                mime="text/csv",
+                label="📥 Export History (Excel)",
+                data=towrite,
+                file_name=f"contract_history_{pd.Timestamp.now().strftime('%Y-%m-%d')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True
             )
-        
-        with col2:
-            # Show database info
-            st.info(f"📊 Database: {len(history_df)} valid entries")
-        
-        with col3:
-            # Clear history with confirmation
-            if st.button("🗑️ Clear History", type="secondary", use_container_width=True):
-                st.warning("⚠️ This will permanently delete all analysis history!")
-                if st.button("✅ Confirm Delete", type="secondary"):
-                    try:
-                        conn = sqlite3.connect(DB_PATH)
-                        c = conn.cursor()
-                        c.execute("DELETE FROM history")
-                        conn.commit()
-                        conn.close()
-                        st.success("✅ History cleared!")
+
+        with colB:
+            # Initialize delete confirmation state
+            if "confirm_delete" not in st.session_state:
+                st.session_state.confirm_delete = False
+
+            if not st.session_state.confirm_delete:
+                if st.button("🗑 Delete History", use_container_width=True):
+                    st.session_state.confirm_delete = True
+                    st.rerun()
+            else:
+                st.warning("⚠ Are you sure you want to delete all history?")
+                colC, colD = st.columns(2)
+                with colC:
+                    if st.button("✅ Yes, Delete"):
+                        try:
+                            if os.path.exists(DB_PATH):
+                                conn = sqlite3.connect(DB_PATH)
+                                c = conn.cursor()
+                                c.execute("DELETE FROM history")
+                                conn.commit()
+                                conn.close()
+                                
+                                # Clear cache
+                                for key in list(st.session_state.keys()):
+                                    del st.session_state[key]
+                                
+                                st.success("✅ All history deleted!")
+                                st.rerun()
+                            else:
+                                st.error("❌ Database file not found")
+                        except Exception as e:
+                            st.error(f"❌ Error clearing history: {str(e)}")
+                with colD:
+                    if st.button("❌ Cancel"):
+                        st.session_state.confirm_delete = False
                         st.rerun()
-                    except Exception as e:
-                        st.error(f"❌ Error: {str(e)}")
+
+
+
 # ------------------------------
 # Footer
 # ------------------------------
@@ -978,4 +1001,3 @@ st.markdown("""
     <p>Transform your contract analysis workflow with intelligent automation</p>
 </div>
 """, unsafe_allow_html=True)
-
