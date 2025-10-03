@@ -13,6 +13,19 @@ from suggestions import generate_suggestions
 from save_to_sheets import process_contract_data, save_to_google_sheets
 from modifier import render_download_buttons
 from io import BytesIO
+# --- NEW IMPORTS FOR EMAIL & ENV ---
+import yagmail
+import json
+from dotenv import load_dotenv # Used to load API key from .env
+
+# Load environment variables FIRST (Crucial for GROQ_API_KEY to work)
+load_dotenv()
+
+# ------------------------------
+# Email Configuration
+# ------------------------------
+SENDER_EMAIL = "sushma.shukla3011@gmail.com"
+SENDER_PASSWORD = "ouiktzvxjzzcqbli" # Your App Password
 
 
 # ------------------------------
@@ -248,6 +261,51 @@ def load_css():
 # Database Functions
 # ------------------------------
 DB_PATH = "contract_history.db"
+# email sending function 
+def send_report_email(recipient_email, filename, num_clauses, num_high, num_medium, num_low):
+    """Sends the contract summary report via email."""
+    
+    subject = f"AI Contract Analysis Summary: {filename}"
+    
+    # 1. Create the email body (HTML)
+    body_html = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
+        <div style="background-color: #f4f4f4; padding: 20px; border-radius: 10px;">
+            <h2 style="color: #0984e3;">📑 AI Contract Compliance Analysis Summary</h2>
+            <p>Dear User,</p>
+            <p>The AI analysis for your contract <strong>{filename}</strong> is complete. Below is the risk summary:</p>
+            
+            <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
+                <tr><td style="padding: 8px; border: 1px solid #ddd; background-color: #e3f0ff;"><strong>Total Clauses Analyzed:</strong></td><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">{num_clauses}</td></tr>
+                <tr style="color: #ff4757;"><td style="padding: 8px; border: 1px solid #ddd; background-color: #ffe3e6;"><strong>High Risk Clauses:</strong></td><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">{num_high}</td></tr>
+                <tr style="color: #ffa726;"><td style="padding: 8px; border: 1px solid #ddd; background-color: #fff4e6;"><strong>Medium Risk Clauses:</strong></td><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">{num_medium}</td></tr>
+                <tr style="color: #26a69a;"><td style="padding: 8px; border: 1px solid #ddd; background-color: #e6fff7;"><strong>Low Risk Clauses:</strong></td><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">{num_low}</td></tr>
+            </table>
+
+            <p><strong>Next Steps:</strong></p>
+            <p>The *modified contract report* is ready and can be downloaded from the *'Upload & Analyze'* tab on the web app. Full details are in the *'Detailed Results'* tab.</p>
+            
+            <p>Thank you for using the AI Contract Compliance Checker.</p>
+        </div>
+    </body>
+    </html>
+    """
+    
+    # 2. Send the email using yagmail
+    try:
+        yag = yagmail.SMTP(user=SENDER_EMAIL, password=SENDER_PASSWORD)
+        
+        # Sending summary only (no PDF attachment in this current version)
+        yag.send(
+            to=recipient_email,
+            subject=subject,
+            contents=[body_html],
+        )
+        return True
+    except Exception as e:
+        print(f"Yagmail Send Error: {e}")
+        return False
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -491,6 +549,15 @@ with tab2:
         type=["pdf"],
         help="Upload your contract in PDF format for analysis"
     )
+    # --- FEATURE ADDED: Email Input Field ---
+    recipient_email = st.text_input(
+        "Enter Recipient Email for Summary Report:",
+        placeholder="user@example.com",
+        help="The analysis summary (High, Medium, Low risks) will be sent to this email address."
+    )
+    # ----------------------------------------
+    
+    
     
     if uploaded_file:
         col1, col2 = st.columns([2, 1])
@@ -552,6 +619,42 @@ with tab2:
                 os.unlink(tmp_path)
                 progress_bar.empty()
                 status_text.empty()
+
+                # --- Validation for Email (Add this check before processing starts) ---
+                if not recipient_email or "@" not in recipient_email:
+                    st.error("❌ Please enter a valid email address to receive the report.")
+                    st.stop()
+                # --------------------------
+                
+                # ... (Your existing Steps 1 through 5 and cleanup code) ...
+                
+                # --- FEATURE ADDED: SEND EMAIL SUMMARY REPORT (Step 6) ---
+                status_text.text("📧 Sending email summary...")
+                
+                df = st.session_state.df_results
+                num_clauses = len(df)
+                num_high = (df["Risk_Severity"] == "High").sum()
+                num_medium = (df["Risk_Severity"] == "Medium").sum()
+                num_low = (df["Risk_Severity"] == "Low").sum()
+
+                email_sent = send_report_email(
+                    recipient_email, 
+                    uploaded_file.name, 
+                    num_clauses, 
+                    num_high, 
+                    num_medium, 
+                    num_low
+                )
+                if email_sent:
+                    st.success(f"✅ Analysis Complete and *Summary Emailed* to *{recipient_email}*! Full reports available below.")
+                else:
+                    st.error(f"❌ Analysis Complete, but *Email Failed* to send to *{recipient_email}*. Please check App Password/SMTP settings.")
+                # ----------------------------------------------------
+                
+                progress_bar.empty()
+                status_text.empty()
+                
+                st.balloons()
                 
                 st.success("✅ Analysis Complete!")
                 st.balloons()
