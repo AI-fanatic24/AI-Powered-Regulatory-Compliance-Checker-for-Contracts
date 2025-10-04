@@ -1,270 +1,311 @@
+"""
+LLM Configuration Module
+Centralized configuration for all LLM models, API settings, and safety configurations
+"""
+
 import os
 from dotenv import load_dotenv
+from typing import Dict, List
 
 load_dotenv()
 
-# API Keys and Environment Variables
+# ==========================================
+# API KEYS & CREDENTIALS
+# ==========================================
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-SHEET_ID = os.getenv("SHEET_ID")
-GOOGLE_APPLICATION_CREDENTIALS = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", 130000))
 
-# Groq API Configuration
+# ==========================================
+# API ENDPOINTS
+# ==========================================
 GROQ_BASE_URL = "https://api.groq.com/openai/v1/chat/completions"
 
-# Available Groq Models Configuration
-GROQ_MODELS = [
-    {
-        "name": "llama-3.3-70b-versatile",
-        "max_tokens": 32768,
-        "priority": 1,
-        "description": "Llama 3.3 70B - Most capable, good for complex tasks",
-        "rate_limit_per_minute": 30,
-        "context_window": 32768
-    },
-    {
-        "name": "llama-3.1-8b-instant",
-        "max_tokens": 131072,
-        "priority": 2,
-        "description": "Llama 3.1 8B - Fast and efficient",
-        "rate_limit_per_minute": 100,
-        "context_window": 131072
-    },
-    {
-        "name": "llama-3.1-70b-versatile",
-        "max_tokens": 131072,
-        "priority": 3,
-        "description": "Llama 3.1 70B - High capability with large context",
-        "rate_limit_per_minute": 30,
-        "context_window": 131072
-    },
-    {
-        "name": "llama-3.2-1b-preview",
-        "max_tokens": 8192,
-        "priority": 4,
-        "description": "Llama 3.2 1B - Ultra fast, lightweight",
-        "rate_limit_per_minute": 200,
-        "context_window": 8192
-    },
-    {
-        "name": "llama-3.2-3b-preview",
-        "max_tokens": 8192,
-        "priority": 5,
-        "description": "Llama 3.2 3B - Fast with good performance",
-        "rate_limit_per_minute": 150,
-        "context_window": 8192
-    },
-    {
-        "name": "mixtral-8x7b-32768",
-        "max_tokens": 32768,
-        "priority": 6,
-        "description": "Mixtral 8x7B - Good balance of speed and capability",
-        "rate_limit_per_minute": 30,
-        "context_window": 32768
-    },
-    {
-        "name": "gemma-7b-it",
-        "max_tokens": 8192,
-        "priority": 7,
-        "description": "Gemma 7B - Google's efficient model",
-        "rate_limit_per_minute": 60,
-        "context_window": 8192
-    },
-    {
-        "name": "gemma2-9b-it",
-        "max_tokens": 8192,
-        "priority": 8,
-        "description": "Gemma 2 9B - Updated Google model",
-        "rate_limit_per_minute": 60,
-        "context_window": 8192
+# ==========================================
+# MODEL CONFIGURATIONS
+# ==========================================
+
+class ModelConfig:
+    """Model configuration presets"""
+    
+    # Groq Models
+    GROQ_MODELS = {
+        "quality": "llama-3.3-70b-versatile",      # Best quality (default)
+        "balanced": "llama-3.1-70b-versatile",     # Good balance
+        "fast": "llama-3.1-8b-instant",            # Fastest, lower quality
+        "mixtral": "mixtral-8x7b-32768",           # Alternative quality model
     }
-]
-
-# Available Gemini Models Configuration
-GEMINI_MODELS = [
-    {
-        "name": "gemini-1.5-pro",
-        "max_tokens": 8192,
-        "priority": 1,
-        "description": "Gemini 1.5 Pro - Most capable Gemini model",
-        "rate_limit_per_minute": 2,
-        "context_window": 2097152  # 2M tokens
-    },
-    {
-        "name": "gemini-1.5-flash",
-        "max_tokens": 8192,
-        "priority": 2,
-        "description": "Gemini 1.5 Flash - Fast and efficient",
-        "rate_limit_per_minute": 15,
-        "context_window": 1048576  # 1M tokens
-    },
-    {
-        "name": "gemini-1.5-flash-8b",
-        "max_tokens": 8192,
-        "priority": 3,
-        "description": "Gemini 1.5 Flash 8B - Ultra fast",
-        "rate_limit_per_minute": 100,
-        "context_window": 1048576  # 1M tokens
-    },
-    {
-        "name": "gemini-1.0-pro",
-        "max_tokens": 8192,
-        "priority": 4,
-        "description": "Gemini 1.0 Pro - Stable and reliable",
-        "rate_limit_per_minute": 60,
-        "context_window": 32768
+    
+    # Gemini Models
+    GEMINI_MODELS = {
+        "primary": "gemini-2.5-flash",              # Best for compliance (default)
+        "experimental": "gemini-2.0-flash-exp",     # Backup/experimental
+        "pro": "gemini-2.5-pro",                    # Highest quality, slower
+        "lite": "gemini-2.5-flash-lite",            # Fastest, simple tasks
+        "thinking": "gemini-2.5-flash-thinking-exp", # Advanced reasoning
     }
-]
+    
+    # Default selections
+    DEFAULT_GROQ = GROQ_MODELS["quality"]
+    DEFAULT_GEMINI = GEMINI_MODELS["primary"]
+    BACKUP_GEMINI = GEMINI_MODELS["experimental"]
 
-# Default Model Selection Strategy
-DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
-DEFAULT_GEMINI_MODEL = "gemini-1.5-flash"
 
-# Fallback Strategy Configuration
-FALLBACK_CONFIG = {
-    "max_retries_per_model": 2,
-    "retry_delay_base": 1,  # Base delay in seconds for exponential backoff
-    "max_retry_delay": 60,  # Maximum retry delay in seconds
-    "model_failure_cooldown": 3600,  # How long to avoid a failed model (1 hour)
-    "cross_provider_fallback": True,  # Allow switching between Groq and Gemini
-    "preferred_provider": "groq",  # Primary provider to try first
-}
+# ==========================================
+# FALLBACK CHAIN CONFIGURATION
+# ==========================================
 
-# Model Categories for Different Use Cases
-MODEL_CATEGORIES = {
-    "fast": {
-        "groq": ["llama-3.2-1b-preview", "llama-3.2-3b-preview", "llama-3.1-8b-instant"],
-        "gemini": ["gemini-1.5-flash-8b", "gemini-1.5-flash"]
-    },
-    "balanced": {
-        "groq": ["llama-3.3-70b-versatile", "mixtral-8x7b-32768", "gemma2-9b-it"],
-        "gemini": ["gemini-1.5-flash", "gemini-1.0-pro"]
-    },
-    "high_capacity": {
-        "groq": ["llama-3.1-70b-versatile", "llama-3.1-8b-instant"],
-        "gemini": ["gemini-1.5-pro", "gemini-1.5-flash"]
-    },
-    "cost_effective": {
-        "groq": ["llama-3.2-1b-preview", "gemma-7b-it", "gemma2-9b-it"],
-        "gemini": ["gemini-1.5-flash-8b", "gemini-1.0-pro"]
-    }
-}
-
-# Request Configuration Templates
-REQUEST_CONFIGS = {
-    "creative": {
-        "temperature": 0.7,
-        "top_p": 0.9,
-        "max_tokens": 4000
-    },
-    "analytical": {
-        "temperature": 0.1,
-        "top_p": 0.1,
-        "max_tokens": 4000
-    },
-    "balanced": {
-        "temperature": 0.3,
-        "top_p": 0.5,
-        "max_tokens": 4000
-    },
-    "long_form": {
-        "temperature": 0.4,
-        "top_p": 0.6,
-        "max_tokens": 8000
-    }
-}
-
-# Utility Functions for Configuration
-def get_model_by_name(model_name: str, provider: str = None):
-    """Get model configuration by name"""
-    if provider == "groq" or provider is None:
-        for model in GROQ_MODELS:
-            if model["name"] == model_name:
-                return {"provider": "groq", **model}
+class FallbackChain:
+    """Define fallback order for different scenarios"""
     
-    if provider == "gemini" or provider is None:
-        for model in GEMINI_MODELS:
-            if model["name"] == model_name:
-                return {"provider": "gemini", **model}
-    
-    return None
-
-def get_models_by_category(category: str, provider: str = None):
-    """Get models filtered by category and optionally by provider"""
-    if category not in MODEL_CATEGORIES:
-        return []
-    
-    result = []
-    category_models = MODEL_CATEGORIES[category]
-    
-    if provider is None or provider == "groq":
-        for model_name in category_models.get("groq", []):
-            model_config = get_model_by_name(model_name, "groq")
-            if model_config:
-                result.append(model_config)
-    
-    if provider is None or provider == "gemini":
-        for model_name in category_models.get("gemini", []):
-            model_config = get_model_by_name(model_name, "gemini")
-            if model_config:
-                result.append(model_config)
-    
-    return sorted(result, key=lambda x: x["priority"])
-
-def get_best_model_for_tokens(required_tokens: int, provider: str = None):
-    """Get the best model that can handle the required token count"""
-    all_models = []
-    
-    if provider is None or provider == "groq":
-        all_models.extend([{"provider": "groq", **model} for model in GROQ_MODELS])
-    
-    if provider is None or provider == "gemini":
-        all_models.extend([{"provider": "gemini", **model} for model in GEMINI_MODELS])
-    
-    # Filter models that can handle the required tokens
-    suitable_models = [
-        model for model in all_models 
-        if model["context_window"] >= required_tokens
+    # Standard fallback: Groq → Gemini Primary → Gemini Backup
+    STANDARD = [
+        ("groq", ModelConfig.DEFAULT_GROQ),
+        ("gemini", ModelConfig.DEFAULT_GEMINI),
+        ("gemini", ModelConfig.BACKUP_GEMINI),
     ]
     
-    if suitable_models:
-        return min(suitable_models, key=lambda x: x["priority"])
+    # Quality-focused: Groq Quality → Gemini Pro
+    QUALITY_FIRST = [
+        ("groq", ModelConfig.GROQ_MODELS["quality"]),
+        ("gemini", ModelConfig.GEMINI_MODELS["pro"]),
+    ]
     
-    return None
+    # Speed-focused: Fast models only
+    SPEED_FIRST = [
+        ("groq", ModelConfig.GROQ_MODELS["fast"]),
+        ("gemini", ModelConfig.GEMINI_MODELS["lite"]),
+    ]
+    
+    # Gemini-only: For when Groq is unavailable
+    GEMINI_ONLY = [
+        ("gemini", ModelConfig.DEFAULT_GEMINI),
+        ("gemini", ModelConfig.BACKUP_GEMINI),
+        ("gemini", ModelConfig.GEMINI_MODELS["experimental"]),
+    ]
 
-def validate_api_keys():
-    """Check if required API keys are available"""
-    status = {
-        "groq_available": bool(GROQ_API_KEY),
-        "gemini_available": bool(GEMINI_API_KEY),
-        "at_least_one_available": bool(GROQ_API_KEY or GEMINI_API_KEY)
-    }
-    
-    if not status["at_least_one_available"]:
-        raise ValueError("No API keys available. Please set GROQ_API_KEY or GEMINI_API_KEY")
-    
-    return status
 
-# Model Provider Status
-def get_provider_info():
-    """Get information about available providers and models"""
-    api_status = validate_api_keys()
+# ==========================================
+# API SETTINGS
+# ==========================================
+
+class APISettings:
+    """API call settings and limits"""
     
-    return {
-        "providers": {
-            "groq": {
-                "available": api_status["groq_available"],
-                "models_count": len(GROQ_MODELS),
-                "default_model": DEFAULT_GROQ_MODEL
-            },
-            "gemini": {
-                "available": api_status["gemini_available"],
-                "models_count": len(GEMINI_MODELS),
-                "default_model": DEFAULT_GEMINI_MODEL
-            }
+    # Timeout settings (seconds)
+    GROQ_TIMEOUT = 30
+    GEMINI_TIMEOUT = 45
+    
+    # Retry settings
+    MAX_RETRIES = 1  # Optimized for speed
+    RETRY_BACKOFF_BASE = 2  # Exponential backoff base
+    MAX_BACKOFF = 3  # Cap backoff at 3 seconds
+    
+    # Rate limit settings
+    RATE_LIMIT_WAIT = 2
+    
+    # Generation settings
+    TEMPERATURE = 0.1  # Low for consistent compliance analysis
+    MAX_TOKENS = 4000
+    
+    # Parallel processing
+    DEFAULT_MAX_WORKERS = 3  # Balanced performance
+    MAX_WORKERS_LIMIT = 10   # Hard limit
+
+
+# ==========================================
+# GEMINI SAFETY SETTINGS
+# ==========================================
+
+class SafetyConfig:
+    """Gemini safety filter configurations"""
+    
+    # Permissive settings for compliance/legal content
+    COMPLIANCE_SETTINGS = [
+        {
+            "category": "HARM_CATEGORY_HARASSMENT",
+            "threshold": "BLOCK_NONE"
         },
-        "total_models": len(GROQ_MODELS) + len(GEMINI_MODELS),
-        "fallback_enabled": FALLBACK_CONFIG["cross_provider_fallback"],
-        "preferred_provider": FALLBACK_CONFIG["preferred_provider"]
+        {
+            "category": "HARM_CATEGORY_HATE_SPEECH",
+            "threshold": "BLOCK_NONE"
+        },
+        {
+            "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+            "threshold": "BLOCK_NONE"
+        },
+        {
+            "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+            "threshold": "BLOCK_NONE"
+        },
+    ]
+    
+    # Moderate settings (if permissive causes issues)
+    MODERATE_SETTINGS = [
+        {
+            "category": "HARM_CATEGORY_HARASSMENT",
+            "threshold": "BLOCK_ONLY_HIGH"
+        },
+        {
+            "category": "HARM_CATEGORY_HATE_SPEECH",
+            "threshold": "BLOCK_ONLY_HIGH"
+        },
+        {
+            "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+            "threshold": "BLOCK_ONLY_HIGH"
+        },
+        {
+            "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+            "threshold": "BLOCK_ONLY_HIGH"
+        },
+    ]
+    
+    # Default for compliance analysis
+    DEFAULT = COMPLIANCE_SETTINGS
+
+
+# ==========================================
+# PROMPT TEMPLATES
+# ==========================================
+
+class PromptTemplates:
+    """Reusable prompt templates"""
+    
+    # Compliance context wrapper
+    COMPLIANCE_CONTEXT = """You are a professional regulatory compliance assistant analyzing legal documents for a business compliance system. This is a legitimate legal analysis task for compliance purposes.
+
+{prompt}"""
+    
+    # JSON response template
+    JSON_RESPONSE = """Return your response in valid JSON format only, without markdown code blocks.
+Follow this structure:
+{structure}
+
+{prompt}"""
+
+
+# ==========================================
+# BATCHING CONFIGURATION
+# ==========================================
+
+class BatchConfig:
+    """Settings for batch processing"""
+    
+    MAX_BATCH_SIZE = 3000  # Characters
+    BATCH_SEPARATOR = "\n\n---CLAUSE SEPARATOR---\n\n"
+    MIN_CHUNK_SIZE_FOR_BATCHING = 500  # Only batch if chunks < 500 chars
+
+
+# ==========================================
+# LOGGING & MONITORING
+# ==========================================
+
+class LogConfig:
+    """Logging configuration"""
+    
+    SHOW_PROGRESS = True
+    VERBOSE_ERRORS = True
+    LOG_API_CALLS = True
+    LOG_RETRIES = True
+
+
+# ==========================================
+# ENVIRONMENT VALIDATION
+# ==========================================
+
+def validate_environment() -> Dict[str, bool]:
+    """Check if API keys are configured"""
+    return {
+        "groq_configured": bool(GROQ_API_KEY),
+        "gemini_configured": bool(GEMINI_API_KEY),
     }
+
+
+def get_available_providers() -> List[str]:
+    """Get list of configured providers"""
+    providers = []
+    if GROQ_API_KEY:
+        providers.append("groq")
+    if GEMINI_API_KEY:
+        providers.append("gemini")
+    return providers
+
+
+# ==========================================
+# USAGE PRESETS
+# ==========================================
+
+class UsagePresets:
+    """Common configuration presets for different use cases"""
+    
+    @staticmethod
+    def compliance_analysis():
+        """Standard compliance document analysis"""
+        return {
+            "groq_model": ModelConfig.DEFAULT_GROQ,
+            "gemini_model": ModelConfig.DEFAULT_GEMINI,
+            "safety_settings": SafetyConfig.COMPLIANCE_SETTINGS,
+            "temperature": 0.1,
+            "max_workers": 3,
+        }
+    
+    @staticmethod
+    def high_quality_legal():
+        """High-stakes legal analysis"""
+        return {
+            "groq_model": ModelConfig.GROQ_MODELS["quality"],
+            "gemini_model": ModelConfig.GEMINI_MODELS["pro"],
+            "safety_settings": SafetyConfig.COMPLIANCE_SETTINGS,
+            "temperature": 0.05,
+            "max_workers": 2,  # More conservative
+        }
+    
+    @staticmethod
+    def fast_categorization():
+        """Quick categorization/classification"""
+        return {
+            "groq_model": ModelConfig.GROQ_MODELS["fast"],
+            "gemini_model": ModelConfig.GEMINI_MODELS["lite"],
+            "safety_settings": SafetyConfig.MODERATE_SETTINGS,
+            "temperature": 0.2,
+            "max_workers": 5,  # High throughput
+        }
+
+
+# ==========================================
+# EXPORT DEFAULTS
+# ==========================================
+
+# Quick access to defaults
+DEFAULT_GROQ_MODEL = ModelConfig.DEFAULT_GROQ
+DEFAULT_GEMINI_MODEL = ModelConfig.DEFAULT_GEMINI
+DEFAULT_SAFETY_SETTINGS = SafetyConfig.DEFAULT
+DEFAULT_TIMEOUT = APISettings.GROQ_TIMEOUT
+DEFAULT_MAX_RETRIES = APISettings.MAX_RETRIES
+DEFAULT_MAX_WORKERS = APISettings.DEFAULT_MAX_WORKERS
+
+
+if __name__ == "__main__":
+    # Print configuration summary
+    print("🔧 LLM Configuration Summary")
+    print("=" * 60)
+    
+    env = validate_environment()
+    print(f"\n📡 API Keys Configured:")
+    print(f"  • Groq: {'✅' if env['groq_configured'] else '❌'}")
+    print(f"  • Gemini: {'✅' if env['gemini_configured'] else '❌'}")
+    
+    print(f"\n🤖 Default Models:")
+    print(f"  • Groq: {ModelConfig.DEFAULT_GROQ}")
+    print(f"  • Gemini: {ModelConfig.DEFAULT_GEMINI}")
+    
+    print(f"\n🔄 Fallback Chain:")
+    for idx, (provider, model) in enumerate(FallbackChain.STANDARD, 1):
+        print(f"  {idx}. {provider.upper()}: {model}")
+    
+    print(f"\n⚙ API Settings:")
+    print(f"  • Max Retries: {APISettings.MAX_RETRIES}")
+    print(f"  • Timeout: {APISettings.GROQ_TIMEOUT}s")
+    print(f"  • Temperature: {APISettings.TEMPERATURE}")
+    print(f"  • Parallel Workers: {APISettings.DEFAULT_MAX_WORKERS}")
+    
+    print("\n" + "=" * 60)
