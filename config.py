@@ -37,9 +37,9 @@ class ModelConfig:
     
     # Gemini Models
     GEMINI_MODELS = {
-        "primary": "gemini-2.5-flash",              # Best for compliance (default)
+        "primary": "gemini-2.5-pro",                # Best for compliance (default)
         "experimental": "gemini-2.0-flash-exp",     # Backup/experimental
-        "pro": "gemini-2.5-pro",                    # Highest quality, slower
+        "pro": "gemini-2.5-flash",                  # Alternative quality model
         "lite": "gemini-2.5-flash-lite",            # Fastest, simple tasks
         "thinking": "gemini-2.5-flash-thinking-exp", # Advanced reasoning
     }
@@ -67,7 +67,7 @@ class FallbackChain:
     # Quality-focused: Groq Quality → Gemini Pro
     QUALITY_FIRST = [
         ("groq", ModelConfig.GROQ_MODELS["quality"]),
-        ("gemini", ModelConfig.GEMINI_MODELS["pro"]),
+        ("gemini", ModelConfig.GEMINI_MODELS["primary"]),
     ]
     
     # Speed-focused: Fast models only
@@ -253,10 +253,7 @@ class UsagePresets:
         """High-stakes legal analysis"""
         return {
             "groq_model": ModelConfig.GROQ_MODELS["quality"],
-            "gemini_model": ModelConfig.GEMINI_MODELS["pro"],
-            "safety_settings": SafetyConfig.COMPLIANCE_SETTINGS,
-            "temperature": 0.05,
-            "max_workers": 2,  # More conservative
+            "gemini_model": ModelConfig.GEMINI_MODELS["primary"],
         }
     
     @staticmethod
