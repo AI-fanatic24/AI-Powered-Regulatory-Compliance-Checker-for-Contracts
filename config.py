@@ -280,7 +280,6 @@ DEFAULT_TIMEOUT = APISettings.GROQ_TIMEOUT
 DEFAULT_MAX_RETRIES = APISettings.MAX_RETRIES
 DEFAULT_MAX_WORKERS = APISettings.DEFAULT_MAX_WORKERS
 
-
 if __name__ == "__main__":
     # Print configuration summary
     print("🔧 LLM Configuration Summary")
