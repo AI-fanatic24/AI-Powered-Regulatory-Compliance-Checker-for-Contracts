@@ -7,10 +7,11 @@ matplotlib
 seaborn
 numpy
 python-docx
-docx2pdf
 openpyxl
 xlrd
 
+# Email
+yagmail
 
 # Google APIs
 google-generativeai
@@ -28,5 +29,7 @@ sentence-transformers
 torch
 transformers
 
-#UI
-streamlit
+# UI
+streamlit==1.41.0
+altair==4.2.2
+xlsxwriter
